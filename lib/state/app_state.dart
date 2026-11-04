@@ -1,328 +1,412 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../models/user_profile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/agenda_event.dart';
+import '../models/event_task.dart';
 import '../models/library_resource.dart';
-import '../models/achievement.dart';
+import '../services/library_storage.dart';
+import '../services/notification_service.dart';
 
 class AppState extends ChangeNotifier {
-  // --- User Profile ---
-  UserProfile userProfile = UserProfile(
-    name: '',
-    grade: '0',
-    isConfigured: false,
-  );
+  // --- Keys for SharedPreferences ---
+  static const _keyIsDarkMode = 'isDarkMode';
+  static const _keyNotificationsEnabled = 'notificationsEnabled';
+  static const _keyHasStarted = 'hasStarted';
+  static const _keyNotificationPermissionPrompted =
+      'notificationPermissionPrompted';
+  static const _keyEvents = 'events';
+  static const _keyResources = 'resources';
+  static const _keySubjects = 'subjects';
+
+  // --- Loading State & Future for deterministic tests ---
+  bool _isLoading = true;
+  bool get isLoading => _isLoading;
+  late final Future<void> loadFuture;
+
+  // --- Error tracking for damaged data ---
+  bool eventsContainerCorrupted = false;
+  int omittedEventsCount = 0;
+  bool resourcesContainerCorrupted = false;
+  int omittedResourcesCount = 0;
+
+  String? get eventsErrorMessage {
+    if (eventsContainerCorrupted) {
+      return 'El contenedor local de eventos está dañado y no se pudo leer. Los datos originales se conservan sin sobrescribir.';
+    }
+    if (omittedEventsCount > 0) {
+      return 'Se omitieron $omittedEventsCount evento(s) con datos incompletos o fechas inválidas.';
+    }
+    return null;
+  }
+
+  String? get resourcesErrorMessage {
+    if (resourcesContainerCorrupted) {
+      return 'El contenedor local de recursos está dañado y no se pudo leer. Los datos originales se conservan sin sobrescribir.';
+    }
+    if (omittedResourcesCount > 0) {
+      return 'Se omitieron $omittedResourcesCount recurso(s) con datos incompletos o fechas inválidas.';
+    }
+    return null;
+  }
 
   // --- App Theme & Settings ---
-  bool isDarkMode = false;
-  bool notificationsEnabled = true;
+  bool isDarkMode = true;
+  bool notificationsEnabled = false;
+
+  // --- App Launch State ---
+  bool hasStarted = false;
 
   // --- Events ---
   final List<AgendaEvent> _events = [];
 
-  // --- Resources ---
+  // --- Resources (Empty by default) ---
   final List<LibraryResource> _resources = [];
 
-  // --- Achievements ---
-  final List<Achievement> _achievements = [];
-
-  // --- Stats ---
-  int consecutiveDays = 5;
+  // --- Subjects (Empty by default) ---
+  final List<String> _subjects = [];
 
   AppState() {
-    _initInitialData();
+    loadFuture = _loadFromStorage();
+  }
+
+  Future<void> ensureLoaded() => loadFuture;
+
+  Future<bool> claimFirstNotificationPermissionPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_keyNotificationPermissionPrompted) ?? false) {
+      return false;
+    }
+    await prefs.setBool(_keyNotificationPermissionPrompted, true);
+    return true;
   }
 
   List<AgendaEvent> get events => List.unmodifiable(_events);
   List<LibraryResource> get resources => List.unmodifiable(_resources);
-  List<Achievement> get achievements => List.unmodifiable(_achievements);
-
-  // Computed stats
-  int get unlockedAchievementsCount =>
-      _achievements.where((a) => a.isUnlocked).length;
-
-  int get totalDocumentsRead =>
-      _resources.fold(0, (sum, res) => sum + res.readCount);
-
-  double get overallAchievementProgress {
-    if (_achievements.isEmpty) return 0.0;
-    final totalProgress = _achievements.fold<double>(
-      0.0,
-      (sum, a) => sum + a.progressPercentage,
-    );
-    return (totalProgress / _achievements.length).clamp(0.0, 1.0);
-  }
+  List<String> get subjects => List.unmodifiable(_subjects);
 
   AgendaEvent? get nextUpcomingEvent {
     final now = DateTime.now();
     final upcoming = _events
-        .where((e) => !e.isCompleted && e.dateTime.isAfter(now.subtract(const Duration(hours: 12))))
+        .where((e) => !e.isCompleted && e.dateTime.isAfter(now))
         .toList();
     if (upcoming.isEmpty) return null;
     upcoming.sort((a, b) => a.dateTime.compareTo(b.dateTime));
     return upcoming.first;
   }
 
-  void _initInitialData() {
-    final now = DateTime.now();
+  // --- Persistence: Load ---
+  Future<void> _loadFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Default Events matching prompt.md
-    _events.addAll([
-      AgendaEvent(
-        id: '1',
-        title: 'Examen de Matemática',
-        type: EventType.examen,
-        dateTime: now.add(const Duration(days: 2, hours: 3)),
-        subject: 'Matemática',
-        location: 'Aula 204',
-        notes: 'Repasar derivadas e integrales básicas.',
-      ),
-      AgendaEvent(
-        id: '2',
-        title: 'Entrega de proyecto Flutter',
-        type: EventType.entrega,
-        dateTime: now.add(const Duration(days: 5, hours: 1)),
-        subject: 'Informática',
-        location: 'Laboratorio 3',
-        notes: 'Subir código a repositorio GitHub.',
-      ),
-      AgendaEvent(
-        id: '3',
-        title: 'Presentación de Historia',
-        type: EventType.presentacion,
-        dateTime: now.add(const Duration(days: 8, hours: 2)),
-        subject: 'Historia',
-        location: 'Auditorio',
-        notes: 'Traer diapositivas en pendrive.',
-      ),
-      AgendaEvent(
-        id: '4',
-        title: 'Reunión de Delegados',
-        type: EventType.importante,
-        dateTime: now.add(const Duration(days: 12)),
-        subject: 'Institucional',
-        location: 'Sala de Profesores',
-        notes: 'Discutir actividades del mes.',
-      ),
-    ]);
+      isDarkMode = prefs.getBool(_keyIsDarkMode) ?? true;
+      notificationsEnabled = prefs.getBool(_keyNotificationsEnabled) ?? false;
+      hasStarted = prefs.getBool(_keyHasStarted) ?? false;
 
-    // Default Library Resources
-    _resources.addAll([
-      LibraryResource(
-        id: 'r1',
-        title: 'Álgebra básica y funciones',
-        category: 'Matemática',
-        fileType: 'PDF',
-        fileSize: '2.4 MB',
-        description: 'Material teórico y práctico para estudiar ecuaciones y funciones lineales y cuadráticas.',
-        dateAdded: now.subtract(const Duration(days: 1)),
-        readCount: 3,
-      ),
-      LibraryResource(
-        id: 'r2',
-        title: 'Guía de programación en Flutter',
-        category: 'Informática',
-        fileType: 'PDF',
-        fileSize: '5.1 MB',
-        description: 'Manual introductorio a Widgets, layouts y manejo de estados en Dart/Flutter.',
-        dateAdded: now.subtract(const Duration(days: 2)),
-        readCount: 5,
-        isFavorite: true,
-      ),
-      LibraryResource(
-        id: 'r3',
-        title: 'Resumen de literatura clásica',
-        category: 'Lengua',
-        fileType: 'PDF',
-        fileSize: '1.8 MB',
-        description: 'Resumen temático sobre El Quijote y autores del Siglo de Oro.',
-        dateAdded: now.subtract(const Duration(days: 4)),
-      ),
-      LibraryResource(
-        id: 'r4',
-        title: 'Introducción a la Química Orgánica',
-        category: 'Ciencias',
-        fileType: 'PDF',
-        fileSize: '3.6 MB',
-        description: 'Formulación y nomenclatura de compuestos orgánicos e hidrocarburos.',
-        dateAdded: now.subtract(const Duration(days: 6)),
-      ),
-    ]);
+      final eventsJson = prefs.getString(_keyEvents);
+      if (eventsJson != null && eventsJson.isNotEmpty) {
+        try {
+          final dynamic decoded = jsonDecode(eventsJson);
+          if (decoded is List) {
+            for (final item in decoded) {
+              if (item is Map<String, dynamic>) {
+                try {
+                  _events.add(AgendaEvent.fromJson(item));
+                } catch (_) {
+                  omittedEventsCount++;
+                }
+              } else {
+                omittedEventsCount++;
+              }
+            }
+          } else {
+            // Container exists but is not a valid JSON list
+            eventsContainerCorrupted = true;
+          }
+        } catch (_) {
+          // JSON syntax error: corrupt container string preserved without overwrite
+          eventsContainerCorrupted = true;
+        }
+      }
 
-    // Default Achievements
-    _achievements.addAll([
-      Achievement(
-        id: 'a1',
-        title: 'Primer paso',
-        description: 'Abriste la aplicación por primera vez',
-        iconEmoji: '🥇',
-        iconData: Icons.star_outline,
-        isUnlocked: true,
-        unlockedAt: now.subtract(const Duration(days: 1)),
-        requiredProgress: 1,
-        currentProgress: 1,
-      ),
-      Achievement(
-        id: 'a2',
-        title: 'Lector constante',
-        description: 'Abriste y leíste 5 documentos',
-        iconEmoji: '📚',
-        iconData: Icons.menu_book,
-        isUnlocked: true,
-        unlockedAt: now.subtract(const Duration(hours: 12)),
-        requiredProgress: 5,
-        currentProgress: 5,
-      ),
-      Achievement(
-        id: 'a3',
-        title: 'Organizado',
-        description: 'Creaste al menos 3 eventos en tu agenda',
-        iconEmoji: '📅',
-        iconData: Icons.calendar_month,
-        isUnlocked: true,
-        unlockedAt: now.subtract(const Duration(days: 2)),
-        requiredProgress: 3,
-        currentProgress: 4,
-      ),
-      Achievement(
-        id: 'a4',
-        title: 'Estudioso pro',
-        description: 'Completa 10 eventos de tu agenda',
-        iconEmoji: '🎓',
-        iconData: Icons.school,
-        isUnlocked: false,
-        requiredProgress: 10,
-        currentProgress: 2,
-      ),
-      Achievement(
-        id: 'a5',
-        title: 'Bibliotecario',
-        description: 'Guarda 3 documentos en tus favoritos',
-        iconEmoji: '⭐',
-        iconData: Icons.bookmark,
-        isUnlocked: false,
-        requiredProgress: 3,
-        currentProgress: 1,
-      ),
-    ]);
+      final resourcesJson = prefs.getString(_keyResources);
+      if (resourcesJson != null && resourcesJson.isNotEmpty) {
+        try {
+          final dynamic decoded = jsonDecode(resourcesJson);
+          if (decoded is List) {
+            for (final item in decoded) {
+              if (item is Map<String, dynamic>) {
+                try {
+                  _resources.add(LibraryResource.fromJson(item));
+                } catch (_) {
+                  omittedResourcesCount++;
+                }
+              } else {
+                omittedResourcesCount++;
+              }
+            }
+          } else {
+            // Container exists but is not a valid JSON list
+            resourcesContainerCorrupted = true;
+          }
+        } catch (_) {
+          // JSON syntax error: corrupt container string preserved without overwrite
+          resourcesContainerCorrupted = true;
+        }
+      }
+
+      final subjectsJson = prefs.getString(_keySubjects);
+      if (subjectsJson != null && subjectsJson.isNotEmpty) {
+        try {
+          final dynamic decoded = jsonDecode(subjectsJson);
+          if (decoded is List) {
+            for (final item in decoded) {
+              _rememberSubject(item?.toString() ?? '');
+            }
+          }
+        } catch (_) {
+          // Materias ilegibles: se empieza con la lista vacía.
+        }
+      }
+    } catch (_) {
+      // If SharedPreferences fails during load, start fresh with defaults
+    }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  // --- Profile Actions ---
-  void updateUserProfile(String name, String grade) {
-    userProfile = userProfile.copyWith(
-      name: name.trim().isEmpty ? 'Estudiante' : name.trim(),
-      grade: grade.trim().isEmpty ? 'General' : grade.trim(),
-      isConfigured: true,
-    );
+  // --- Persistence: Save with concurrency serialization ---
+  bool _isSaving = false;
+  bool _hasSavePending = false;
+
+  Future<void> _saveToStorage() async {
+    if (_isSaving) {
+      _hasSavePending = true;
+      return;
+    }
+    _isSaving = true;
+
+    try {
+      do {
+        _hasSavePending = false;
+        final prefs = await SharedPreferences.getInstance();
+
+        await prefs.setBool(_keyIsDarkMode, isDarkMode);
+        await prefs.setBool(_keyNotificationsEnabled, notificationsEnabled);
+        await prefs.setBool(_keyHasStarted, hasStarted);
+
+        // Never overwrite corrupt container string with empty or partial list
+        if (!eventsContainerCorrupted) {
+          await prefs.setString(
+            _keyEvents,
+            jsonEncode(_events.map((e) => e.toJson()).toList()),
+          );
+        }
+
+        if (!resourcesContainerCorrupted) {
+          await prefs.setString(
+            _keyResources,
+            jsonEncode(_resources.map((r) => r.toJson()).toList()),
+          );
+        }
+
+        await prefs.setString(_keySubjects, jsonEncode(_subjects));
+      } while (_hasSavePending);
+    } catch (_) {
+      // Silently fail — next save will retry
+    } finally {
+      _isSaving = false;
+    }
+  }
+
+  // --- App Flow Actions ---
+  void startApp() {
+    hasStarted = true;
     notifyListeners();
+    _saveToStorage();
   }
 
   void toggleDarkMode(bool value) {
     isDarkMode = value;
     notifyListeners();
+    _saveToStorage();
   }
 
-  void toggleNotifications(bool value) {
+  Future<void> toggleNotifications(bool value) async {
     notificationsEnabled = value;
     notifyListeners();
+    await _saveToStorage();
+    if (value) {
+      await NotificationService.instance.rescheduleAll(_events, enabled: true);
+    } else {
+      await NotificationService.instance.cancelAll();
+    }
   }
 
-  // --- Event Actions ---
+  // --- Event Actions (immutable via copyWith) ---
   void addEvent(AgendaEvent event) {
+    _rememberSubject(event.subject);
     _events.add(event);
-    _checkEventAchievements();
     notifyListeners();
+    _saveToStorage();
+    _syncReminder(event);
   }
 
   void updateEvent(AgendaEvent updatedEvent) {
     final index = _events.indexWhere((e) => e.id == updatedEvent.id);
     if (index != -1) {
+      _rememberSubject(updatedEvent.subject);
       _events[index] = updatedEvent;
       notifyListeners();
+      _saveToStorage();
+      _syncReminder(updatedEvent);
     }
   }
 
   void toggleEventCompleted(String id) {
     final index = _events.indexWhere((e) => e.id == id);
     if (index != -1) {
-      _events[index].isCompleted = !_events[index].isCompleted;
-      _checkCompletedAchievements();
+      _events[index] = _events[index].copyWith(
+        isCompleted: !_events[index].isCompleted,
+      );
       notifyListeners();
+      _saveToStorage();
+      _syncReminder(_events[index]);
     }
   }
 
   void deleteEvent(String id) {
     _events.removeWhere((e) => e.id == id);
     notifyListeners();
+    _saveToStorage();
+    unawaited(NotificationService.instance.cancel(id));
   }
 
-  // --- Resource Actions ---
+  // --- Event Checklist ---
+  void addEventTask(String eventId, String title) {
+    final value = title.trim();
+    if (value.isEmpty) return;
+
+    final index = _events.indexWhere((e) => e.id == eventId);
+    if (index == -1) return;
+
+    final event = _events[index];
+    final task = EventTask(
+      id: '${DateTime.now().microsecondsSinceEpoch}-${event.tasks.length}',
+      title: value,
+    );
+    _events[index] = event.copyWith(tasks: [...event.tasks, task]);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void toggleEventTask(String eventId, String taskId) {
+    final index = _events.indexWhere((e) => e.id == eventId);
+    if (index == -1) return;
+
+    final event = _events[index];
+    final taskIndex = event.tasks.indexWhere((t) => t.id == taskId);
+    if (taskIndex == -1) return;
+
+    final tasks = [...event.tasks];
+    tasks[taskIndex] = tasks[taskIndex].copyWith(
+      isDone: !tasks[taskIndex].isDone,
+    );
+    _events[index] = event.copyWith(tasks: tasks);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void deleteEventTask(String eventId, String taskId) {
+    final index = _events.indexWhere((e) => e.id == eventId);
+    if (index == -1) return;
+
+    final event = _events[index];
+    final tasks = event.tasks.where((t) => t.id != taskId).toList();
+    if (tasks.length == event.tasks.length) return;
+
+    _events[index] = event.copyWith(tasks: tasks);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void _syncReminder(AgendaEvent event) {
+    unawaited(
+      NotificationService.instance.syncEvent(
+        event,
+        enabled: notificationsEnabled,
+      ),
+    );
+  }
+
+  // --- Subjects ---
+  void addSubject(String name) {
+    final value = name.trim();
+    if (value.isEmpty) return;
+    if (_subjects.any((s) => s.toLowerCase() == value.toLowerCase())) return;
+
+    _subjects.add(value);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void removeSubject(String name) {
+    final previousLength = _subjects.length;
+    _subjects.removeWhere((s) => s.toLowerCase() == name.toLowerCase());
+    if (_subjects.length == previousLength) return;
+
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  /// Registra una materia usada en un evento o recurso, sin duplicarla.
+  void _rememberSubject(String name) {
+    final value = name.trim();
+    if (value.isEmpty || value.toLowerCase() == 'general') return;
+    if (_subjects.any((s) => s.toLowerCase() == value.toLowerCase())) return;
+    _subjects.add(value);
+  }
+
+  // --- Resource Actions (immutable via copyWith) ---
+  void addResource(LibraryResource resource) {
+    _rememberSubject(resource.category);
+    _resources.add(resource);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void deleteResource(String id) {
+    final index = _resources.indexWhere((r) => r.id == id);
+    if (index == -1) return;
+
+    final localPath = _resources[index].localPath;
+    _resources.removeAt(index);
+    notifyListeners();
+    _saveToStorage();
+    unawaited(LibraryStorage.delete(localPath));
+  }
+
   void toggleFavoriteResource(String id) {
     final index = _resources.indexWhere((r) => r.id == id);
     if (index != -1) {
-      _resources[index].isFavorite = !_resources[index].isFavorite;
-      _checkFavoriteAchievements();
+      _resources[index] = _resources[index].copyWith(
+        isFavorite: !_resources[index].isFavorite,
+      );
       notifyListeners();
+      _saveToStorage();
     }
   }
 
   void incrementReadCount(String id) {
     final index = _resources.indexWhere((r) => r.id == id);
     if (index != -1) {
-      _resources[index].readCount++;
-      _checkReadAchievements();
+      _resources[index] = _resources[index].copyWith(
+        readCount: _resources[index].readCount + 1,
+      );
       notifyListeners();
-    }
-  }
-
-  // --- Achievement Triggers ---
-  void _checkEventAchievements() {
-    final achievementIndex = _achievements.indexWhere((a) => a.id == 'a3');
-    if (achievementIndex != -1) {
-      final ach = _achievements[achievementIndex];
-      ach.currentProgress = _events.length;
-      if (ach.currentProgress >= ach.requiredProgress && !ach.isUnlocked) {
-        ach.isUnlocked = true;
-        ach.unlockedAt = DateTime.now();
-      }
-    }
-  }
-
-  void _checkCompletedAchievements() {
-    final completedCount = _events.where((e) => e.isCompleted).length;
-    final achievementIndex = _achievements.indexWhere((a) => a.id == 'a4');
-    if (achievementIndex != -1) {
-      final ach = _achievements[achievementIndex];
-      ach.currentProgress = completedCount;
-      if (ach.currentProgress >= ach.requiredProgress && !ach.isUnlocked) {
-        ach.isUnlocked = true;
-        ach.unlockedAt = DateTime.now();
-      }
-    }
-  }
-
-  void _checkFavoriteAchievements() {
-    final favCount = _resources.where((r) => r.isFavorite).length;
-    final achievementIndex = _achievements.indexWhere((a) => a.id == 'a5');
-    if (achievementIndex != -1) {
-      final ach = _achievements[achievementIndex];
-      ach.currentProgress = favCount;
-      if (ach.currentProgress >= ach.requiredProgress && !ach.isUnlocked) {
-        ach.isUnlocked = true;
-        ach.unlockedAt = DateTime.now();
-      }
-    }
-  }
-
-  void _checkReadAchievements() {
-    final totalRead = totalDocumentsRead;
-    final achievementIndex = _achievements.indexWhere((a) => a.id == 'a2');
-    if (achievementIndex != -1) {
-      final ach = _achievements[achievementIndex];
-      ach.currentProgress = totalRead;
-      if (ach.currentProgress >= ach.requiredProgress && !ach.isUnlocked) {
-        ach.isUnlocked = true;
-        ach.unlockedAt = DateTime.now();
-      }
+      _saveToStorage();
     }
   }
 }

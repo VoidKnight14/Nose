@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../state/app_state.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onCompleted;
@@ -10,240 +9,257 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  int _step = 0; // 0: Welcome, 1: User details
-  final _nameController = TextEditingController(text: '');
-  final _gradeController = TextEditingController(text: '');
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _logoFade;
+  late final Animation<Offset> _titleSlide;
+  late final Animation<double> _titleFade;
+  late final Animation<Offset> _subtitleSlide;
+  late final Animation<double> _subtitleFade;
+  late final Animation<Offset> _buttonSlide;
+  late final Animation<double> _buttonFade;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    );
+
+    _logoScale = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.45, curve: Curves.easeIn),
+      ),
+    );
+
+    _titleSlide = Tween<Offset>(
+      begin: const Offset(0, 0.35),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _titleFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.6, curve: Curves.easeIn),
+      ),
+    );
+
+    _subtitleSlide = Tween<Offset>(
+      begin: const Offset(0, 0.35),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.35, 0.85, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _subtitleFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.35, 0.75, curve: Curves.easeIn),
+      ),
+    );
+
+    _buttonSlide = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _buttonFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 0.9, curve: Curves.easeIn),
+      ),
+    );
+
+    _controller.forward();
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _gradeController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  void _submit(AppState appState) {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, ingresa tu nombre')),
-      );
-      return;
-    }
-    appState.updateUserProfile(
-      _nameController.text.trim(),
-      _gradeController.text.trim(),
-    );
-    widget.onCompleted();
-  }
-
-  @override  
+  @override
   Widget build(BuildContext context) {
-    final appState = AppStateScope.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _step == 0
-              ? _buildWelcomeStep(theme)
-              : _buildUserSetupStep(theme, appState),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+
+              // App Logo / Hero Badge with Scale and Fade transition
+              Center(
+                child: FadeTransition(
+                  opacity: _logoFade,
+                  child: ScaleTransition(
+                    scale: _logoScale,
+                    child: Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.school_rounded,
+                        size: 56,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 36),
+
+              // Title with Slide and Fade transition
+              FadeTransition(
+                opacity: _titleFade,
+                child: SlideTransition(
+                  position: _titleSlide,
+                  child: Text(
+                    'Nexora',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Subtitle with Slide and Fade transition
+              FadeTransition(
+                opacity: _subtitleFade,
+                child: SlideTransition(
+                  position: _subtitleSlide,
+                  child: Text(
+                    'Todo lo que necesitas para organizarte.\nAgenda y biblioteca digital en un solo lugar.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+
+              // Local-only data notice
+              FadeTransition(
+                opacity: _subtitleFade,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Nexora guarda tus datos solo en este dispositivo. Al desinstalar la app, se borrarán y no podrán recuperarse.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Button with Slide and Fade transition
+              FadeTransition(
+                opacity: _buttonFade,
+                child: SlideTransition(
+                  position: _buttonSlide,
+                  child: ElevatedButton(
+                    onPressed: widget.onCompleted,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Comenzar',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_rounded, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeStep(ThemeData theme) {
-    return Padding(
-      key: const ValueKey('welcome_step'),
-      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Spacer(),
-          // App Logo / Hero Badge
-          Center(
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.school_rounded,
-                size: 56,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 36),
-          // Title
-          Text(
-            'Nexora',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Subtitle
-          Text(
-            'Todo lo que necesitas para organizarte.\nAgenda, biblioteca y logros en un solo lugar.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
-            ),
-          ),
-          const Spacer(),
-          // Button
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _step = 1;
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 4,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Comenzar',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward_rounded, size: 20),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserSetupStep(ThemeData theme, AppState appState) {
-    return SingleChildScrollView(
-      key: const ValueKey('setup_step'),
-      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => setState(() => _step = 0),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Configuración inicial',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Cuéntanos un poco sobre ti para personalizar tu experiencia.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 36),
-
-          // Name Input
-          Text(
-            '¿Cómo te llamas?',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.person_outline),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Grade Input
-          Text(
-            'Curso o Año',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _gradeController,
-            decoration: InputDecoration(
-              hintText: 'Ej. 3° Informática',
-              prefixIcon: const Icon(Icons.class_outlined),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 48),
-
-          // Submit Button
-          ElevatedButton(
-            onPressed: () => _submit(appState),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 4,
-            ),
-            child: const Text(
-              'Continuar',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

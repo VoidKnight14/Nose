@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_tab.dart';
 import 'agenda_tab.dart';
 import 'library_tab.dart';
-import 'achievements_tab.dart';
-import 'profile_screen.dart';
+import 'settings_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -21,9 +20,9 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-  void _openProfileScreen() {
+  void _openSettingsScreen() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (ctx) => const ProfileScreen()),
+      MaterialPageRoute(builder: (ctx) => const SettingsScreen()),
     );
   }
 
@@ -32,11 +31,9 @@ class _MainLayoutState extends State<MainLayout> {
     final List<Widget> tabs = [
       HomeTab(
         onNavigateToTab: _navigateToTab,
-        onOpenProfile: _openProfileScreen,
       ),
       const AgendaTab(),
       const LibraryTab(),
-      const AchievementsTab(),
     ];
 
     return Scaffold(
@@ -67,9 +64,9 @@ class _MainLayoutState extends State<MainLayout> {
         ),
         actions: [
           IconButton(
-            icon: const Text('👤', style: TextStyle(fontSize: 22)),
-            onPressed: _openProfileScreen,
-            tooltip: 'Ver perfil',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: _openSettingsScreen,
+            tooltip: 'Configuración',
           ),
         ],
       ),
@@ -100,11 +97,6 @@ class _MainLayoutState extends State<MainLayout> {
             icon: Icon(Icons.local_library_outlined),
             selectedIcon: Icon(Icons.local_library, color: Color(0xFF4F46E5)),
             label: 'Biblioteca',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events, color: Color(0xFF4F46E5)),
-            label: 'Logros',
           ),
         ],
       ),

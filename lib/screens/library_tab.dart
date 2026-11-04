@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/library_resource.dart';
 import '../state/app_state.dart';
 import '../widgets/resource_detail_modal.dart';
+import '../widgets/add_resource_dialog.dart';
 
 class LibraryTab extends StatefulWidget {
   const LibraryTab({super.key});
@@ -15,18 +16,14 @@ class _LibraryTabState extends State<LibraryTab> {
   String _selectedCategory = 'Todas';
   bool _onlyFavorites = false;
 
-  final List<String> _categories = [
-    'Todas',
-    'Matemática',
-    'Informática',
-    'Lengua',
-    'Ciencias',
-  ];
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _openAddResourceDialog(BuildContext context) {
+    showDialog(context: context, builder: (ctx) => const AddResourceDialog());
   }
 
   @override
@@ -36,12 +33,23 @@ class _LibraryTabState extends State<LibraryTab> {
 
     final searchQuery = _searchController.text.trim().toLowerCase();
 
+    final categories = <String>{
+      'Todas',
+      ...appState.subjects,
+      ...appState.resources.map((r) => r.category),
+    }.toList();
+    final selectedCategory = categories.contains(_selectedCategory)
+        ? _selectedCategory
+        : 'Todas';
+
     // Filter resources
     final filteredResources = appState.resources.where((res) {
-      final matchesCategory = _selectedCategory == 'Todas' ||
-          res.category.toLowerCase() == _selectedCategory.toLowerCase();
+      final matchesCategory =
+          selectedCategory == 'Todas' ||
+          res.category.toLowerCase() == selectedCategory.toLowerCase();
       final matchesFav = !_onlyFavorites || res.isFavorite;
-      final matchesSearch = searchQuery.isEmpty ||
+      final matchesSearch =
+          searchQuery.isEmpty ||
           res.title.toLowerCase().contains(searchQuery) ||
           res.category.toLowerCase().contains(searchQuery) ||
           res.description.toLowerCase().contains(searchQuery);
@@ -68,7 +76,6 @@ class _LibraryTabState extends State<LibraryTab> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      // Segment toggle for Favorites
                       IconButton(
                         icon: Icon(
                           _onlyFavorites ? Icons.star : Icons.star_border,
@@ -104,7 +111,8 @@ class _LibraryTabState extends State<LibraryTab> {
                             )
                           : null,
                       filled: true,
-                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      fillColor: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.4),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -115,13 +123,46 @@ class _LibraryTabState extends State<LibraryTab> {
               ),
             ),
 
+            // Warning Banner for Damaged Data (if any)
+            if (appState.resourcesErrorMessage != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.amber.shade700.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.amber.shade800,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        appState.resourcesErrorMessage!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Category Chips
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
-                children: _categories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
+                children: categories.map((cat) {
+                  final isSelected = selectedCategory == cat;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ChoiceChip(
@@ -132,8 +173,12 @@ class _LibraryTabState extends State<LibraryTab> {
                       },
                       selectedColor: const Color(0xFF4F46E5),
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Colors.white
+                            : theme.colorScheme.onSurface,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                   );
@@ -146,47 +191,81 @@ class _LibraryTabState extends State<LibraryTab> {
             Expanded(
               child: filteredResources.isEmpty
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_off_outlined,
-                            size: 64,
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No se encontraron documentos',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              appState.resources.isEmpty
+                                  ? Icons.menu_book_outlined
+                                  : Icons.folder_off_outlined,
+                              size: 64,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Intenta cambiando la búsqueda o los filtros.',
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Text(
+                              appState.resources.isEmpty
+                                  ? 'Tu biblioteca está vacía'
+                                  : 'No se encontraron documentos',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              appState.resources.isEmpty
+                                  ? 'No tienes documentos por defecto. Toca "+ Nuevo recurso" para agregar tus primeros apuntes o libros.'
+                                  : 'Intenta cambiando la búsqueda o los filtros.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 8),
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       itemCount: filteredResources.length,
                       itemBuilder: (context, index) {
                         final resource = filteredResources[index];
-                        return _buildResourceCard(context, resource, appState, theme);
+                        return _buildResourceCard(
+                          context,
+                          resource,
+                          appState,
+                          theme,
+                        );
                       },
                     ),
             ),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openAddResourceDialog(context),
+        backgroundColor: const Color(0xFF4F46E5),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Nuevo recurso'),
+      ),
     );
   }
 
-  Widget _buildResourceCard(BuildContext context, LibraryResource resource,
-      AppState appState, ThemeData theme) {
+  Widget _buildResourceCard(
+    BuildContext context,
+    LibraryResource resource,
+    AppState appState,
+    ThemeData theme,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: InkWell(
@@ -207,11 +286,11 @@ class _LibraryTabState extends State<LibraryTab> {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.1),
+              color: theme.colorScheme.outline.withValues(alpha: 0.15),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -223,7 +302,7 @@ class _LibraryTabState extends State<LibraryTab> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: resource.categoryColor.withValues(alpha: 0.12),
+                  color: resource.categoryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
