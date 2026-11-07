@@ -176,9 +176,9 @@
     "semantic_hash": "8d60793ce958cfd16fad45b2cfbe09dd"
   },
   "README.md": {
-    "mtime": 1793823406.0423818,
-    "seen": 1793824025.899765,
-    "ast_hash": "bedfc6d86962c98bc5e0038ff03b1fbd",
+    "mtime": 1793824185.0542111,
+    "seen": 1793825540.9137084,
+    "ast_hash": "0d32c4098d077d50924e71a7e30ce4b8",
     "semantic_hash": ""
   },
   "ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md": {
@@ -206,33 +206,33 @@
     "semantic_hash": ""
   },
   "android/app/src/main/res/mipmap-hdpi/ic_launcher.png": {
-    "mtime": 1786458946.8379023,
-    "seen": 1793754493.4297378,
-    "ast_hash": "13e9c72ec37fac220397aa819fa1ef2d",
+    "mtime": 1793825250.3239164,
+    "seen": 1793825540.9137712,
+    "ast_hash": "7b59341b15086f200c4094247a754fce",
     "semantic_hash": ""
   },
   "android/app/src/main/res/mipmap-mdpi/ic_launcher.png": {
-    "mtime": 1786458946.8399014,
-    "seen": 1793754493.4297469,
-    "ast_hash": "6270344430679711b81476e29878caa7",
+    "mtime": 1793825250.307386,
+    "seen": 1793825540.913781,
+    "ast_hash": "f5161f84da599e75ce79b0b865927b5a",
     "semantic_hash": ""
   },
   "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png": {
-    "mtime": 1786458946.8429005,
-    "seen": 1793754493.429756,
-    "ast_hash": "a0a8db5985280b3679d99a820ae2db79",
+    "mtime": 1793825250.3424501,
+    "seen": 1793825540.91379,
+    "ast_hash": "eeecd957e9a4606b9b808efb9e834a58",
     "semantic_hash": ""
   },
   "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png": {
-    "mtime": 1786458946.8449006,
-    "seen": 1793754493.4297645,
-    "ast_hash": "afe1b655b9f32da22f9a4301bb8e6ba8",
+    "mtime": 1793825250.3649864,
+    "seen": 1793825540.9137995,
+    "ast_hash": "32e0c86c4ac682c6773601bafa75d85f",
     "semantic_hash": ""
   },
   "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": {
-    "mtime": 1786458946.8469012,
-    "seen": 1793754493.4297736,
-    "ast_hash": "57838d52c318faff743130c3fcfae0c6",
+    "mtime": 1793825250.3939848,
+    "seen": 1793825540.913809,
+    "ast_hash": "4c961d27a321694b8a4578707ec062cf",
     "semantic_hash": ""
   },
   "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png": {
@@ -380,9 +380,9 @@
     "semantic_hash": ""
   },
   "lib/services/notification_service.dart": {
-    "mtime": 1793823418.0091176,
-    "seen": 1793824025.8995981,
-    "ast_hash": "de7cfd1b0a6a6d0ae124d1cd09b2d129",
+    "mtime": 1793825312.6027846,
+    "seen": 1793825540.913542,
+    "ast_hash": "eb64e8e73a28f65abd3a850ca8733592",
     "semantic_hash": ""
   },
   "test/phase2_test.dart": {
@@ -437,6 +437,12 @@
     "mtime": 1793811293.7712698,
     "seen": 1793811757.6188006,
     "ast_hash": "578d06aba71437ee7afeda617ddf1ab4",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable/ic_stat_nexora.png": {
+    "mtime": 1793825250.2913883,
+    "seen": 1793825540.9137614,
+    "ast_hash": "30ce4b6de88fe150c4e2ad247be1c78d",
     "semantic_hash": ""
   }
 }

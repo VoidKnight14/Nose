@@ -1,7 +1,7 @@
 # Graph Report - Nexora  (2026-11-04)
 
 ## Corpus Check
-- 44 files · ~19,920 words
+- 44 files · ~19,910 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 28 file(s) not represented in the graph (top: .xml 7, (none) 4, .plist 4)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4e5f41f9`
+- Built from commit: `a15de9ef`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

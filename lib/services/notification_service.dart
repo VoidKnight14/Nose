@@ -114,6 +114,7 @@ class NotificationService {
           'nexora_events',
           'Recordatorios de eventos',
           channelDescription: 'Avisos de exámenes, entregas y presentaciones',
+          icon: 'ic_stat_nexora',
           importance: Importance.high,
           priority: Priority.high,
         ),
